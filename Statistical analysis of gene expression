@@ -1,0 +1,82 @@
+library(GEOquery)
+library(Biobase)
+library(genefilter)
+library(limma)
+
+# Download the GEO dataset GSE71188 using GEOquery
+arab <- getGEO("GSE71188")[[1]]
+class(arab) # Expression set object
+
+# Search and select Col-0 samples
+names(pData(arab))
+
+pData(arab)$"genotype:ch1" # This dataset has many ecotypes of Arabidopsis
+unique(pData(arab)$"time:ch1") # Also check the time that the samples were taken
+
+# Let's compare the expression change in Col-0 plants at the end of the day and after an extended night
+
+# Select the samples
+samples <- arab[,(pData(arab)$"genotype:ch1" == "Col0") & 
+                  (pData(arab)$"time:ch1" == "end of the day (ED; ZT8)"  | 
+                     pData(arab)$"time:ch1" == "6h extended night (XN; ZT30)")]
+
+dim(exprs(samples)) # We end up with an expression set with 4 samples and 21329 probes 
+
+# Statistical analysis 
+
+statistical_design <- model.matrix(~ samples[["time:ch1"]])
+statistical_design  # Define our statistical model
+
+colnames(statistical_design)[2] <- "time" # Change the name just for interpretation
+
+fit <- lmFit(samples, statistical_design)
+fitted.ebayes <- eBayes(fit)
+topTable(fitted.ebayes) # Probes with the most expression change 
+
+summary(decideTests(fitted.ebayes[,"time"], lfc=2)) 
+# Give us a table with up and downregulated probes expression
+
+# Volcano plot of probes expression
+signif_probes <- topTable(fitted.ebayes, number=Inf, p.value=0.05, lfc=2)
+
+volcanoplot(fitted.ebayes, coef=2)
+volcanoplot(fitted.ebayes, coef=2, main=sprintf("%d genes with statistical significance", nrow(signif_probes)))
+points(signif_probes[['logFC']], -log10(signif_probes[['P.Value']]), 
+       col=ifelse(signif_probes[['logFC']] > 2, 'red', 'blue'))
+abline(v=c(-2, 2), col='gray', lty=3)
+
+# Let's find out the genes under the probes
+
+annotation(arab) # ATH1 (GPL198) microarray from Affymetrix
+
+# For this case, we need to download the CSV file https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GPL198 
+# and import it into the R environment
+
+annotation_data <- GPL198.17390
+
+samples <- samples[rownames(signif_probes),] # Only probes with statistical change
+
+position <- match(rownames(samples), annotation_data$ID) # Give us the index of the coincidence
+
+e <- exprs(samples)
+
+# Change the probes' name with the gene name coincidence
+
+rownames(e) <- annotation_data$AGI[position]
+
+expression_change <- ifelse(signif_probes$logFC > 0, 'Up', 'Down')
+e <- cbind(e, UpDown = expression_change)
+# We are almost done, just check for duplicate, NA, or non-conventional row names
+e <- e[!rownames(e) == "", , drop=FALSE] # Skip empty names
+rownames(e) <- gsub(" /// .*", "", rownames(e)) # Some row names have a different notation
+e <- e[!duplicated(rownames(e)) | !duplicated(rownames(e), fromLast=TRUE), ] # Just one for duplicate genes
+e
+
+library(RColorBrewer)
+label_col <- c("Light", "Light", "Extended darkness", "Extended darkness")
+heatmap(exprs(samples),
+        labCol=label_col,
+        labRow=NA,
+        col=rev(brewer.pal(10, "RdBu")),
+        distfun=function(x) as.dist(1 - cor(t(x))),
+        cexCol=0.8, Rowv=) 
