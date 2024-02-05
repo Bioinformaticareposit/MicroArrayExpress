@@ -2,6 +2,10 @@ library(GEOquery)
 library(Biobase)
 library(genefilter)
 library(limma)
+library(RColorBrewer)
+library(clusterProfiler)
+library(AnnotationDbi)
+library(org.At.tair.db)
 
 # Download the GEO dataset GSE71188 using GEOquery
 arab <- getGEO("GSE71188")[[1]]
@@ -72,7 +76,7 @@ rownames(e) <- gsub(" /// .*", "", rownames(e)) # Some row names have a differen
 e <- e[!duplicated(rownames(e)) | !duplicated(rownames(e), fromLast=TRUE), ] # Just one for duplicate genes
 e
 
-library(RColorBrewer)
+
 label_col <- c("Light", "Light", "Extended darkness", "Extended darkness")
 heatmap(exprs(samples),
         labCol=label_col,
@@ -80,3 +84,70 @@ heatmap(exprs(samples),
         col=rev(brewer.pal(10, "RdBu")),
         distfun=function(x) as.dist(1 - cor(t(x))),
         cexCol=0.8, Rowv=) 
+
+
+
+
+# Pathway analysis: Nitrogen metabolism
+
+# Get the KEGG list of genes by pathway
+tab <- getGeneKEGGLinks(species.KEGG = "ath")
+
+# Select genes for Nitrogen metabolism (path:ath00910) and Starch metabolism (path:ath00500)
+pathways_of_interest <- c("path:ath00910", "path:ath00500")
+tab_pathway <- tab %>% filter(PathwayID %in% pathways_of_interest)
+
+# Select genes involved in those pathways from the expression set
+e_pathway <- e[rownames(e) %in% tab_pathway$GeneID, ]
+e_pathway <- as.data.frame(e_pathway)
+e_pathway$PathwayID <- factor(ifelse(rownames(e_pathway) %in% tab_pathway$GeneID,
+                                     tab_pathway$PathwayID[match(rownames(e_pathway), tab_pathway$GeneID)], NA))
+
+# Convert GSM columns to numeric
+e_pathway[, c("GSM1829424", "GSM1829425", "GSM1829428", "GSM1829429")] <- 
+  lapply(e_pathway[, c("GSM1829424", "GSM1829425", "GSM1829428", "GSM1829429")], as.numeric)
+
+# Calculate fold change and arrange the dataframe
+e_pathway <- e_pathway %>% 
+  mutate(fold_change = log2((GSM1829424 + GSM1829425) / (GSM1829428 + GSM1829429))) %>% 
+  arrange(PathwayID, -fold_change)
+
+# Split the dataframe into subsets for the pathways of interest
+nitrogen <- e_pathway %>% filter(PathwayID == "path:ath00910")
+starch <- e_pathway %>% filter(PathwayID == "path:ath00500")
+
+ggplot(nitrogen, aes(x = reorder(rownames(nitrogen), -fold_change), y = fold_change)) +
+  geom_segment(aes(x = reorder(rownames(nitrogen), -fold_change), 
+                   xend = reorder(rownames(nitrogen), fold_change), 
+                   y = 0, yend = fold_change,
+                   color=UpDown), 
+               size = 1.3, alpha = 0.9) +
+  theme_light() +
+  theme(
+    legend.position = "none",
+    panel.border = element_blank(),
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)  # Añadir esta línea
+  ) +
+  xlab("") +
+  ylab("Fold change (log2)") +
+  ggtitle("Nitrogen Metabolism")
+
+
+
+
+ggplot(starch, aes(x = reorder(rownames(starch), -fold_change), y = fold_change)) +
+  geom_segment(aes(x = reorder(rownames(starch), -fold_change), 
+                   xend = reorder(rownames(starch), fold_change), 
+                   y = 0, yend = fold_change,
+                   color=UpDown), 
+               size = 1.3, alpha = 0.9) +
+  theme_light() +
+  theme(
+    legend.position = "none",
+    panel.border = element_blank(),
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)  # Añadir esta línea
+  ) +
+  xlab("") +
+  ylab("Fold change (log2)") +
+  ggtitle("Starch and Sugar Metabolism")
+
