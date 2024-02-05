@@ -8,3 +8,7 @@ Based on the enrichment analysis conducted using ShinyGO, the top 10 pathways wi
 
 
 ![Pathway analisis](https://github.com/Bioinformaticareposit/MicroArrayExpress/assets/115641732/a4ed9acc-25d4-4a4e-96dc-43dd4ec44503)
+
+Furthermore, the various genes implicated in nitrogen and starch metabolism, exhibiting alterations in expression (highlighted in red), play pivotal roles in both nitrogen uptake and carbon utilization.
+
+![Pathways](https://github.com/Bioinformaticareposit/MicroArrayExpress/assets/115641732/e15078f0-ca79-4eb4-bdd5-083df863152e)
