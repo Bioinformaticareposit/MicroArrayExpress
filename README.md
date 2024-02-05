@@ -6,4 +6,5 @@ Following statistical analysis, 587 genes exhibited altered expression levels, w
 
 Based on the enrichment analysis conducted using ShinyGO, the top 10 pathways with the highest fold enrichment were selected. Consistent with the anticipated response to nutritional starvation, notable enrichments were observed in the starch and nitrogen pathways:
 
-![Enrichment analysis](https://github.com/Bioinformaticareposit/MicroArrayExpress/assets/115641732/2ceb1894-6c70-49d4-9d43-6ea92733d871)
+
+![Pathway analisis](https://github.com/Bioinformaticareposit/MicroArrayExpress/assets/115641732/a4ed9acc-25d4-4a4e-96dc-43dd4ec44503)
